@@ -53,6 +53,10 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
      **************************************************************************/
 
   public:
+
+    // empty slots 개수 반환
+    size_t get_num_empty_slots() const { return _empty_slots.size(); }
+
     // Constructor for Bulk operations and for creating the index object solely
     // for loading a prexisting index.
     DISKANN_DLLEXPORT Index(const IndexConfig &index_config, std::shared_ptr<AbstractDataStore<T>> data_store,

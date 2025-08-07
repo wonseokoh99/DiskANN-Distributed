@@ -4,6 +4,15 @@
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
 
+# My functions
+add_executable(build_continuous_memory_index build_continuous_memory_index.cpp)
+target_link_libraries(build_continuous_memory_index ${PROJECT_NAME} ${DISKANN_TOOLS_TCMALLOC_LINK_OPTIONS} Boost::program_options)
+
+add_executable(build_memory_index_offset build_memory_index_offset.cpp)
+target_link_libraries(build_memory_index_offset ${PROJECT_NAME} ${DISKANN_TOOLS_TCMALLOC_LINK_OPTIONS} Boost::program_options)
+
+# My functions
+
 add_executable(build_memory_index build_memory_index.cpp)
 target_link_libraries(build_memory_index ${PROJECT_NAME} ${DISKANN_TOOLS_TCMALLOC_LINK_OPTIONS} Boost::program_options)
 

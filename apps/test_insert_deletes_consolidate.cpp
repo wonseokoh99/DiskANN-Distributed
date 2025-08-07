@@ -281,6 +281,15 @@ void build_incremental_index(const std::string &data_path, diskann::IndexWritePa
         for (size_t start = current_point_offset; start < last_point_threshold;
              start += points_per_checkpoint, current_point_offset += points_per_checkpoint)
         {
+
+            // 내부 상태 출력 (getter 사용)
+            auto* concrete_index = dynamic_cast<diskann::Index<T, uint32_t, uint32_t>*>(index.get());
+            if (concrete_index) {
+                std::cout << "[DEBUG] After initial build: _nd=" << concrete_index->get_num_points()
+                    << ", _empty_slots=" << concrete_index->get_num_empty_slots()
+                    << ", _max_points=" << concrete_index->get_max_points()
+                    << std::endl;
+
             const size_t end = std::min(start + points_per_checkpoint, last_point_threshold);
             std::cout << std::endl << "Inserting from " << start << " to " << end << std::endl;
 
@@ -304,13 +313,7 @@ void build_incremental_index(const std::string &data_path, diskann::IndexWritePa
                 });
             }
 
-                // 내부 상태 출력 (getter 사용)
-                auto* concrete_index = dynamic_cast<diskann::Index<T, uint32_t, uint32_t>*>(index.get());
-                if (concrete_index) {
-                    std::cout << "[DEBUG] After initial build: _nd=" << concrete_index->get_num_points()
-                        << ", _empty_slots=" << concrete_index->get_num_empty_slots()
-                        << ", _max_points=" << concrete_index->get_max_points()
-                        << std::endl;
+
     }
 
 

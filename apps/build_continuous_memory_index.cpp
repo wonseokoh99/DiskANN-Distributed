@@ -78,17 +78,13 @@ inline void load_aligned_bin_part(const std::string &bin_file, T *data, size_t o
     std::cout << "Read " << points_to_read << " points using non-cached reads in " << elapsedSeconds << std::endl;
 }
 
-std::string get_save_filename(const std::string &save_path, size_t points_to_skip, size_t points_deleted,
-                              size_t last_point_threshold)
+std::string get_save_filename(const std::string &save_path, size_t start_index,
+                              size_t end_index, size_t num_delete_point)
 {
     std::string final_path = save_path;
-    if (points_to_skip > 0)
-    {
-        final_path += "skip" + std::to_string(points_to_skip) + "-";
-    }
+    final_path += "-from-" + std::to_string(start_index) + "-to-" + std::to_string(end_index) + "-delete-" + std::to_string(num_delete_point);
 
-    final_path += "del" + std::to_string(points_deleted) + "-";
-    final_path += std::to_string(last_point_threshold);
+    // final_path += std::to_string(last_point_threshold);
     return final_path;
 }
 
@@ -242,8 +238,11 @@ void build_incremental_index(const std::string &data_path, diskann::IndexWritePa
         index->set_start_points_at_random(static_cast<T>(start_point_norm));
     }
 
-
-
+            // 내부 상태 출력 (getter 사용)
+            // auto* concrete_index = dynamic_cast<diskann::Index<T, uint32_t, uint32_t>*>(index.get());
+            // if (concrete_index) {
+            //     concrete_index->print_status();
+            // }
     const double elapsedSeconds = timer.elapsed() / 1000000.0;
     std::cout << "Initial non-incremental index build time for " << beginning_index_size << " points took "
               << elapsedSeconds << " seconds (" << beginning_index_size / elapsedSeconds << " points/second)\n ";
@@ -261,8 +260,7 @@ void build_incremental_index(const std::string &data_path, diskann::IndexWritePa
     if (concurrent)
     {
         // handle labels
-        const auto save_path_inc = get_save_filename(save_path + ".after-concurrent-delete-", points_to_skip,
-                                                     points_to_delete_from_beginning, last_point_threshold);
+            const auto save_path_inc = get_save_filename(save_path, points_to_skip, points_to_skip + max_points_to_insert, points_to_delete_from_beginning);
         std::string labels_file_to_use = save_path_inc + "_label_formatted.txt";
         std::string mem_labels_int_map_file = save_path_inc + "_labels_map.txt";
         if (has_labels)
@@ -283,12 +281,10 @@ void build_incremental_index(const std::string &data_path, diskann::IndexWritePa
         {
 
             // 내부 상태 출력 (getter 사용)
-            auto* concrete_index = dynamic_cast<diskann::Index<T, uint32_t, uint32_t>*>(index.get());
-            if (concrete_index) {
-                std::cout << "[DEBUG] After initial build: _nd=" << concrete_index->get_num_points()
-                    << ", _empty_slots=" << concrete_index->get_num_empty_slots()
-                    << ", _max_points=" << concrete_index->get_max_points()
-                    << std::endl;
+            // auto* concrete_index = dynamic_cast<diskann::Index<T, uint32_t, uint32_t>*>(index.get());
+            // if (concrete_index) {
+            //     concrete_index->print_status();
+            // }
 
             const size_t end = std::min(start + points_per_checkpoint, last_point_threshold);
             std::cout << std::endl << "Inserting from " << start << " to " << end << std::endl;
@@ -312,11 +308,6 @@ void build_incremental_index(const std::string &data_path, diskann::IndexWritePa
                                                    points_to_delete_from_beginning);
                 });
             }
-
-
-    }
-
-
         }
         delete_task.get();
 
@@ -325,8 +316,7 @@ void build_incremental_index(const std::string &data_path, diskann::IndexWritePa
     }
     else
     {
-        const auto save_path_inc = get_save_filename(save_path + ".after-delete-", points_to_skip,
-                                                     points_to_delete_from_beginning, last_point_threshold);
+            const auto save_path_inc = get_save_filename(save_path, points_to_skip, points_to_skip + max_points_to_insert, points_to_delete_from_beginning);
         std::string labels_file_to_use = save_path_inc + "_label_formatted.txt";
         std::string mem_labels_int_map_file = save_path_inc + "_labels_map.txt";
         if (has_labels)
@@ -349,13 +339,11 @@ void build_incremental_index(const std::string &data_path, diskann::IndexWritePa
             insert_till_next_checkpoint<T, TagT, LabelT>(*index, start, end, (int32_t)params.num_threads, data,
                                                          aligned_dim, location_to_labels);
 
-
             if (checkpoints_per_snapshot > 0 && --num_checkpoints_till_snapshot == 0)
             {
                 diskann::Timer save_timer;
 
-                const auto save_path_inc =
-                    get_save_filename(save_path + ".inc-", points_to_skip, points_to_delete_from_beginning, end);
+            const auto save_path_inc = get_save_filename(save_path, points_to_skip, points_to_skip + max_points_to_insert, points_to_delete_from_beginning);
                 index->save(save_path_inc.c_str(), false);
                 const double elapsedSeconds = save_timer.elapsed() / 1000000.0;
                 const size_t points_saved = end - points_to_skip;
@@ -372,8 +360,7 @@ void build_incremental_index(const std::string &data_path, diskann::IndexWritePa
 
         if (checkpoints_per_snapshot > 0 && last_snapshot_points_threshold != last_point_threshold)
         {
-            const auto save_path_inc = get_save_filename(save_path + ".inc-", points_to_skip,
-                                                         points_to_delete_from_beginning, last_point_threshold);
+            const auto save_path_inc = get_save_filename(save_path, points_to_skip, points_to_skip + max_points_to_insert, points_to_delete_from_beginning);
             // index.save(save_path_inc.c_str(), false);
         }
 

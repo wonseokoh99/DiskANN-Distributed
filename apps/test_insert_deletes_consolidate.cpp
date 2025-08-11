@@ -242,8 +242,11 @@ void build_incremental_index(const std::string &data_path, diskann::IndexWritePa
         index->set_start_points_at_random(static_cast<T>(start_point_norm));
     }
 
-
-
+            // 내부 상태 출력 (getter 사용)
+            auto* concrete_index = dynamic_cast<diskann::Index<T, uint32_t, uint32_t>*>(index.get());
+            if (concrete_index) {
+                concrete_index->print_status();
+            }
     const double elapsedSeconds = timer.elapsed() / 1000000.0;
     std::cout << "Initial non-incremental index build time for " << beginning_index_size << " points took "
               << elapsedSeconds << " seconds (" << beginning_index_size / elapsedSeconds << " points/second)\n ";
@@ -285,10 +288,8 @@ void build_incremental_index(const std::string &data_path, diskann::IndexWritePa
             // 내부 상태 출력 (getter 사용)
             auto* concrete_index = dynamic_cast<diskann::Index<T, uint32_t, uint32_t>*>(index.get());
             if (concrete_index) {
-                std::cout << "[DEBUG] After initial build: _nd=" << concrete_index->get_num_points()
-                    << ", _empty_slots=" << concrete_index->get_num_empty_slots()
-                    << ", _max_points=" << concrete_index->get_max_points()
-                    << std::endl;
+                concrete_index->print_status();
+            }
 
             const size_t end = std::min(start + points_per_checkpoint, last_point_threshold);
             std::cout << std::endl << "Inserting from " << start << " to " << end << std::endl;
@@ -312,11 +313,6 @@ void build_incremental_index(const std::string &data_path, diskann::IndexWritePa
                                                    points_to_delete_from_beginning);
                 });
             }
-
-
-    }
-
-
         }
         delete_task.get();
 
@@ -348,7 +344,6 @@ void build_incremental_index(const std::string &data_path, diskann::IndexWritePa
             load_aligned_bin_part(data_path, data, start, end - start);
             insert_till_next_checkpoint<T, TagT, LabelT>(*index, start, end, (int32_t)params.num_threads, data,
                                                          aligned_dim, location_to_labels);
-
 
             if (checkpoints_per_snapshot > 0 && --num_checkpoints_till_snapshot == 0)
             {

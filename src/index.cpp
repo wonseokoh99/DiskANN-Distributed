@@ -1573,6 +1573,13 @@ void Index<T, TagT, LabelT>::build_with_data_populated(const std::vector<TagT> &
                   << "  min:" << min << "  count(deg<2):" << cnt << std::endl;
 
     _has_built = true;
+
+    _empty_slots.clear();
+    _empty_slots.reserve(_max_points);
+    for (auto i = _nd; i < _max_points; i++)
+    {
+        _empty_slots.insert((uint32_t)i);
+    }
 }
 template <typename T, typename TagT, typename LabelT>
 void Index<T, TagT, LabelT>::_build(const DataType &data, const size_t num_points_to_load, TagVector &tags)
@@ -3142,6 +3149,7 @@ template <typename T, typename TagT, typename LabelT> void Index<T, TagT, LabelT
 
     diskann::cout << "------------------- Index object: " << (uint64_t)this << " -------------------" << std::endl;
     diskann::cout << "Number of points: " << _nd << std::endl;
+    diskann::cout << "Max points: " << _max_points << std::endl;
     diskann::cout << "Graph size: " << _graph_store->get_total_points() << std::endl;
     diskann::cout << "Location to tag size: " << _location_to_tag.size() << std::endl;
     diskann::cout << "Tag to location size: " << _tag_to_location.size() << std::endl;

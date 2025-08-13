@@ -29,6 +29,13 @@
 #define EXPAND_IF_FULL 0
 #define DEFAULT_MAXC 750
 
+struct TraceInfo {
+    uint32_t node_id;
+    uint32_t partition_id;
+    uint32_t hop;
+};
+
+
 namespace diskann
 {
 
@@ -138,6 +145,14 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
     DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> search(const T *query, const size_t K, const uint32_t L,
                                                            IDType *indices, float *distances = nullptr);
 
+    template <typename IDType>
+    DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> search_with_trace(const T *query, const size_t K, const uint32_t L,
+                                                           IDType *indices,
+                                                            const std::vector<uint32_t>& partition_labels,
+                                                            std::vector<TraceInfo>& trace_path,
+                                                            float *distances = nullptr);
+
+
     // Initialize space for res_vectors before calling.
     DISKANN_DLLEXPORT size_t search_with_tags(const T *query, const uint64_t K, const uint32_t L, TagT *tags,
                                               float *distances, std::vector<T *> &res_vectors, bool use_filters = false,
@@ -214,6 +229,12 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
                                                                const std::string &filter_label_raw, const size_t K,
                                                                const uint32_t L, std::any &indices,
                                                                float *distances) override;
+    virtual std::pair<uint32_t, uint32_t> _search_with_trace(const DataType &query, 
+                                                             const size_t K, const uint32_t L,
+                                                             std::any &indices,
+                                                             const std::vector<uint32_t>& partition_labels,
+                                                             std::vector<TraceInfo>& trace_path,
+                                                             float *distances);
 
     virtual int _insert_point(const DataType &data_point, const TagType tag) override;
     virtual int _insert_point(const DataType &data_point, const TagType tag, Labelvector &labels) override;
@@ -263,6 +284,13 @@ template <typename T, typename TagT = uint32_t, typename LabelT = uint32_t> clas
     std::pair<uint32_t, uint32_t> iterate_to_fixed_point(InMemQueryScratch<T> *scratch, const uint32_t Lindex,
                                                          const std::vector<uint32_t> &init_ids, bool use_filter,
                                                          const std::vector<LabelT> &filters, bool search_invocation);
+
+    // My function
+    std::pair<uint32_t, uint32_t> iterate_to_fixed_point_with_trace(InMemQueryScratch<T> *scratch, const uint32_t Lsize,
+                                                        const std::vector<uint32_t> &init_ids, bool use_filter,
+                                                        const std::vector<LabelT> &filter_labels, bool search_invocation,
+                                                        const std::vector<uint32_t>& partition_labels,
+                                                        std::vector<TraceInfo>& trace_path);
 
     void search_for_point_and_prune(int location, uint32_t Lindex, std::vector<uint32_t> &pruned_list,
                                     InMemQueryScratch<T> *scratch, bool use_filter = false,

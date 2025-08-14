@@ -24,12 +24,6 @@
 #include "index_factory.h"
 
 
-struct TraceInfo {
-    uint32_t node_id;
-    uint32_t partition_id;
-    uint32_t hop;
-};
-
 namespace po = boost::program_options;
 
 template <typename T, typename LabelT = uint32_t>
@@ -111,12 +105,18 @@ int search_memory_index(diskann::Metric &metric, const std::string &index_path, 
             std::cout << "Warning: Partition file " << partition_file << " not found! Tracing is disabled." << std::endl;
             trace_enabled = false;
         } else {
-            p_fin.seekg(sizeof(size_t) * 2, std::ios::beg); // Skip metadata
-            // index->get_num_points() 와 같은 함수가 필요하지만, 일단 query_num을 기준으로 resize.
-            // 더 정확하려면 index에 현재 로드된 포인트 수를 반환하는 함수가 필요합니다.
-            // 여기서는 파일에서 읽은 총 포인트 수인 index->get_max_points() 등을 사용해야 합니다.
-            // 임시로 gt_num 또는 query_num을 사용하거나, 더 정확한 포인트 수를 가져오는 함수를 사용하세요.
-            size_t num_points_in_index = index->get_num_points(); // 이 함수가 있다고 가정
+            // --- START OF MODIFICATION ---
+
+            // 1. AbstractIndex 포인터를 구체적인 Index 포인터로 다운캐스팅합니다.
+            //    index 변수는 std::unique_ptr이므로 .get()으로 원시 포인터를 가져옵니다.
+            auto concrete_index = static_cast<diskann::Index<T, TagT, LabelT>*>(index.get());
+
+            // 2. 이제 concrete_index를 통해 get_num_points()를 호출할 수 있습니다.
+            size_t num_points_in_index = concrete_index->get_num_points();
+            
+            // --- END OF MODIFICATION ---
+            
+            p_fin.seekg(sizeof(size_t) * 2, std::ios::beg);
             partition_labels.resize(num_points_in_index);
             p_fin.read((char*)partition_labels.data(), partition_labels.size() * sizeof(uint32_t));
             p_fin.close();
@@ -239,24 +239,33 @@ int search_memory_index(diskann::Metric &metric, const std::string &index_path, 
             }
             else
             {
-            // *** 4. 표준 탐색 부분을 분기 처리 ***
-            if (trace_enabled) {
-                // 추적 기능이 켜져 있으면 search_with_trace 호출
-                cmp_stats[i] = index->search_with_trace(
-                                   query + i * query_aligned_dim, recall_at, L,
-                                   query_result_ids[test_id].data() + i * recall_at,
-                                   nullptr, partition_labels, all_traces[i]
-                               ).second;
-            } else {
-                // 추적 기능이 꺼져 있으면 기존 search 호출
-                cmp_stats[i] = index->search(
-                                   query + i * query_aligned_dim, recall_at, L,
-                                   query_result_ids[test_id].data() + i * recall_at
-                               ).second;
+                // *** 4. 표준 탐색 부분을 분기 처리 ***
+                if (trace_enabled) {
+                    // get_num_points()를 위해 사용했던 concrete_index 포인터를 여기서도 사용합니다.
+                    // unique_ptr에서 원시 포인터를 가져와 static_cast를 수행합니다.
+                    auto concrete_index = static_cast<diskann::Index<T, TagT, LabelT>*>(index.get());
+
+                    // concrete_index를 통해 새로운 함수를 호출합니다.
+                    cmp_stats[i] = concrete_index->search_with_trace(
+                                    query + i * query_aligned_dim, 
+                                    recall_at, 
+                                    L,
+                                    query_result_ids[test_id].data() + i * recall_at,
+                                    partition_labels,  // 5번째 인자
+                                    all_traces[i],     // 6번째 인자
+                                    nullptr          // 7번째 인자 (맨 마지막)
+                                ).second;
+                } else {
+                    // 추적 기능이 꺼져 있을 때는 기존의 search 함수를 그대로 사용합니다.
+                    cmp_stats[i] = index->search(
+                                    query + i * query_aligned_dim, recall_at, L,
+                                    query_result_ids[test_id].data() + i * recall_at
+                                ).second;
+                }
+                auto qe = std::chrono::high_resolution_clock::now();
+                std::chrono::duration<double> diff = qe - qs;
+                latency_stats[i] = (float)(diff.count() * 1000000);
             }
-            auto qe = std::chrono::high_resolution_clock::now();
-            std::chrono::duration<double> diff = qe - qs;
-            latency_stats[i] = (float)(diff.count() * 1000000);
         }
         std::chrono::duration<double> diff = std::chrono::high_resolution_clock::now() - s;
 
@@ -302,7 +311,7 @@ int search_memory_index(diskann::Metric &metric, const std::string &index_path, 
     }
 
     std::cout << "Done searching. Now saving results " << std::endl;
-    uint64_t test_id = 0;
+    uint64_t test_id1 = 0;
     for (auto L : Lvec)
     {
         if (L < recall_at)
@@ -313,12 +322,12 @@ int search_memory_index(diskann::Metric &metric, const std::string &index_path, 
         std::string cur_result_path_prefix = result_path_prefix + "_" + std::to_string(L);
 
         std::string cur_result_path = cur_result_path_prefix + "_idx_uint32.bin";
-        diskann::save_bin<uint32_t>(cur_result_path, query_result_ids[test_id].data(), query_num, recall_at);
+        diskann::save_bin<uint32_t>(cur_result_path, query_result_ids[test_id1].data(), query_num, recall_at);
 
         cur_result_path = cur_result_path_prefix + "_dists_float.bin";
-        diskann::save_bin<float>(cur_result_path, query_result_dists[test_id].data(), query_num, recall_at);
+        diskann::save_bin<float>(cur_result_path, query_result_dists[test_id1].data(), query_num, recall_at);
 
-        test_id++;
+        test_id1++;
     }
 
 
@@ -327,10 +336,11 @@ int search_memory_index(diskann::Metric &metric, const std::string &index_path, 
         std::string trace_path_csv = result_path_prefix + "_trace.csv";
         std::cout << "Saving trace path to " << trace_path_csv << std::endl;
         std::ofstream trace_out(trace_path_csv);
-        trace_out << "query_id,hop,node_id,partition_id\n";
+        trace_out << "query_id,L,hop,node_id,partition_id\n";
         for (uint64_t i = 0; i < all_traces.size(); ++i) {
             for (const auto& trace_item : all_traces[i]) {
-                trace_out << i << "," << trace_item.hop << "," << trace_item.node_id << "," << trace_item.partition_id << "\n";
+                trace_out << i << "," << trace_item.L << "," << trace_item.hop << "," << trace_item.node_id << "," << trace_item.partition_id << "\n";
+
             }
         }
         trace_out.close();
@@ -488,21 +498,24 @@ int main(int argc, char **argv)
         {
             if (data_type == std::string("int8"))
             {
-                return search_memory_index<int8_t, uint16_t>(
-                    metric, index_path_prefix, result_path, query_file, gt_file, num_threads, K, print_all_recalls,
-                    Lvec, dynamic, tags, show_qps_per_thread, query_filters, fail_if_recall_below);
+                return search_memory_index<int8_t, uint16_t>(metric, index_path_prefix, result_path, query_file, gt_file,
+                                                   num_threads, K, print_all_recalls, Lvec, dynamic, tags,
+                                                   show_qps_per_thread, query_filters, fail_if_recall_below,
+                                                partition_file );
             }
             else if (data_type == std::string("uint8"))
             {
-                return search_memory_index<uint8_t, uint16_t>(
-                    metric, index_path_prefix, result_path, query_file, gt_file, num_threads, K, print_all_recalls,
-                    Lvec, dynamic, tags, show_qps_per_thread, query_filters, fail_if_recall_below);
+                return search_memory_index<uint8_t, uint16_t>(metric, index_path_prefix, result_path, query_file, gt_file,
+                                                   num_threads, K, print_all_recalls, Lvec, dynamic, tags,
+                                                   show_qps_per_thread, query_filters, fail_if_recall_below,
+                                                partition_file );
             }
             else if (data_type == std::string("float"))
             {
                 return search_memory_index<float, uint16_t>(metric, index_path_prefix, result_path, query_file, gt_file,
-                                                            num_threads, K, print_all_recalls, Lvec, dynamic, tags,
-                                                            show_qps_per_thread, query_filters, fail_if_recall_below);
+                                                   num_threads, K, print_all_recalls, Lvec, dynamic, tags,
+                                                   show_qps_per_thread, query_filters, fail_if_recall_below,
+                                                partition_file );
             }
             else
             {

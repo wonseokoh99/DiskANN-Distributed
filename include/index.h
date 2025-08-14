@@ -33,6 +33,7 @@ struct TraceInfo {
     uint32_t node_id;
     uint32_t partition_id;
     uint32_t hop;
+    uint32_t L; // L 값 추가
 };
 
 

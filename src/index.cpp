@@ -1090,7 +1090,7 @@ std::pair<uint32_t, uint32_t> Index<T, TagT, LabelT>::iterate_to_fixed_point_wit
         auto n = nbr.id;
 
         // The only new line of code is here:
-        trace_path.push_back({n, partition_labels[n], hops});
+        trace_path.push_back({n, partition_labels[n], hops, Lsize});
 
         // Add node to expanded nodes to create pool for prune later
         if (!search_invocation)
@@ -1178,6 +1178,8 @@ std::pair<uint32_t, uint32_t> Index<T, TagT, LabelT>::iterate_to_fixed_point_wit
         {
             best_L_nodes.insert(Neighbor(id_scratch[m], dist_scratch[m]));
         }
+
+        hops++;
     }
     return std::make_pair(hops, cmps);
 }
@@ -3802,14 +3804,66 @@ template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<int8_t, uint32_t,
     uint32_t>(const int8_t *query, const uint16_t &filter_label, const size_t K, const uint32_t L, uint32_t *indices,
               float *distances);
 
-template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<float, uint32_t, uint32_t>::search_with_trace<uint32_t>(
-    const float* query, const size_t K, const uint32_t L, uint32_t* indices,
-    const std::vector<uint32_t>& partition_labels,
-    std::vector<TraceInfo>& trace_path, float* distances);
+// =================================================================
+// REPLACE your previous search_with_trace instantiations with this CORRECTED block
+// =================================================================
 
+//
+// === Explicit instantiations for search_with_trace ===
+//
+
+// TagT = uint64_t, LabelT = uint32_t
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<float, uint64_t, uint32_t>::search_with_trace<uint64_t>(
+    const float *query, const size_t K, const uint32_t L, uint64_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<float, uint64_t, uint32_t>::search_with_trace<uint32_t>(
+    const float *query, const size_t K, const uint32_t L, uint32_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<uint8_t, uint64_t, uint32_t>::search_with_trace<uint64_t>(
+    const uint8_t *query, const size_t K, const uint32_t L, uint64_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<uint8_t, uint64_t, uint32_t>::search_with_trace<uint32_t>(
+    const uint8_t *query, const size_t K, const uint32_t L, uint32_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<int8_t, uint64_t, uint32_t>::search_with_trace<uint64_t>(
+    const int8_t *query, const size_t K, const uint32_t L, uint64_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<int8_t, uint64_t, uint32_t>::search_with_trace<uint32_t>(
+    const int8_t *query, const size_t K, const uint32_t L, uint32_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+// TagT = uint32_t, LabelT = uint32_t
 template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<float, uint32_t, uint32_t>::search_with_trace<uint64_t>(
-    const float* query, const size_t K, const uint32_t L, uint64_t* indices,
-    const std::vector<uint32_t>& partition_labels,
-    std::vector<TraceInfo>& trace_path, float* distances);
+    const float *query, const size_t K, const uint32_t L, uint64_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<float, uint32_t, uint32_t>::search_with_trace<uint32_t>(
+    const float *query, const size_t K, const uint32_t L, uint32_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<uint8_t, uint32_t, uint32_t>::search_with_trace<uint64_t>(
+    const uint8_t *query, const size_t K, const uint32_t L, uint64_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<uint8_t, uint32_t, uint32_t>::search_with_trace<uint32_t>(
+    const uint8_t *query, const size_t K, const uint32_t L, uint32_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<int8_t, uint32_t, uint32_t>::search_with_trace<uint64_t>(
+    const int8_t *query, const size_t K, const uint32_t L, uint64_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<int8_t, uint32_t, uint32_t>::search_with_trace<uint32_t>(
+    const int8_t *query, const size_t K, const uint32_t L, uint32_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+// TagT = uint64_t, LabelT = uint16_t
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<float, uint64_t, uint16_t>::search_with_trace<uint64_t>(
+    const float *query, const size_t K, const uint32_t L, uint64_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<float, uint64_t, uint16_t>::search_with_trace<uint32_t>(
+    const float *query, const size_t K, const uint32_t L, uint32_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<uint8_t, uint64_t, uint16_t>::search_with_trace<uint64_t>(
+    const uint8_t *query, const size_t K, const uint32_t L, uint64_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<uint8_t, uint64_t, uint16_t>::search_with_trace<uint32_t>(
+    const uint8_t *query, const size_t K, const uint32_t L, uint32_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<int8_t, uint64_t, uint16_t>::search_with_trace<uint64_t>(
+    const int8_t *query, const size_t K, const uint32_t L, uint64_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<int8_t, uint64_t, uint16_t>::search_with_trace<uint32_t>(
+    const int8_t *query, const size_t K, const uint32_t L, uint32_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+// TagT = uint32_t, LabelT = uint16_t
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<float, uint32_t, uint16_t>::search_with_trace<uint64_t>(
+    const float *query, const size_t K, const uint32_t L, uint64_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<float, uint32_t, uint16_t>::search_with_trace<uint32_t>(
+    const float *query, const size_t K, const uint32_t L, uint32_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<uint8_t, uint32_t, uint16_t>::search_with_trace<uint64_t>(
+    const uint8_t *query, const size_t K, const uint32_t L, uint64_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<uint8_t, uint32_t, uint16_t>::search_with_trace<uint32_t>(
+    const uint8_t *query, const size_t K, const uint32_t L, uint32_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<int8_t, uint32_t, uint16_t>::search_with_trace<uint64_t>(
+    const int8_t *query, const size_t K, const uint32_t L, uint64_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+template DISKANN_DLLEXPORT std::pair<uint32_t, uint32_t> Index<int8_t, uint32_t, uint16_t>::search_with_trace<uint32_t>(
+    const int8_t *query, const size_t K, const uint32_t L, uint32_t *indices, const std::vector<uint32_t>& partition_labels, std::vector<TraceInfo>& trace_path, float *distances);
+
 
 } // namespace diskann

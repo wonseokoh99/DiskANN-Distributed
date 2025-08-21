@@ -336,11 +336,17 @@ int search_memory_index(diskann::Metric &metric, const std::string &index_path, 
         std::string trace_path_csv = result_path_prefix + "_trace.csv";
         std::cout << "Saving trace path to " << trace_path_csv << std::endl;
         std::ofstream trace_out(trace_path_csv);
-        trace_out << "query_id,L,hop,node_id,partition_id\n";
+        // --- START OF MODIFICATION: 헤더 수정 ---
+        trace_out << "query_id,L,hop,node_id,partition_id,intra_partition_comps,inter_partition_comps,pruned_nodes\n";
+        // --- END OF MODIFICATION ---
         for (uint64_t i = 0; i < all_traces.size(); ++i) {
             for (const auto& trace_item : all_traces[i]) {
-                trace_out << i << "," << trace_item.L << "," << trace_item.hop << "," << trace_item.node_id << "," << trace_item.partition_id << "\n";
-
+                // --- START OF MODIFICATION: 출력 내용 수정 ---
+                trace_out << i << "," << trace_item.L << "," << trace_item.hop << "," 
+                          << trace_item.node_id << "," << trace_item.partition_id << ","
+                          << trace_item.intra_partition_comps << "," << trace_item.inter_partition_comps << ","
+                          << trace_item.pruned_nodes << "\n";
+                // --- END OF MODIFICATION ---
             }
         }
         trace_out.close();

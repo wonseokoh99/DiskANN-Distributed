@@ -34,6 +34,10 @@ struct TraceInfo {
     uint32_t partition_id;
     uint32_t hop;
     uint32_t L; // L 값 추가
+
+    uint32_t intra_partition_comps;
+    uint32_t inter_partition_comps;
+    uint32_t pruned_nodes;
 };
 
 

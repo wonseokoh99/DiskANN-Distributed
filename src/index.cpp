@@ -1088,6 +1088,14 @@ std::pair<uint32_t, uint32_t> Index<T, TagT, LabelT>::iterate_to_fixed_point_wit
     {
         auto nbr = best_L_nodes.closest_unexpanded();
         auto n = nbr.id;
+        
+        // --- START OF MODIFICATION ---
+        uint32_t source_partition = partition_labels[n]; // 현재 노드의 파티션
+        uint32_t current_hop_intra_comps = 0;
+        uint32_t current_hop_inter_comps = 0;
+        uint32_t current_hop_pruned_nodes = 0;
+        // --- END OF MODIFICATION ---
+
 
         // The only new line of code is here:
         trace_path.push_back({n, partition_labels[n], hops, Lsize});
@@ -1169,6 +1177,18 @@ std::pair<uint32_t, uint32_t> Index<T, TagT, LabelT>::iterate_to_fixed_point_wit
             }
         }
 
+        // --- START OF MODIFICATION ---
+        // 방문하지 않은 이웃(id_scratch)들을 대상으로 파티션 비교 및 카운트
+        for (const auto& neighbor_id : id_scratch) {
+            if (partition_labels[neighbor_id] == source_partition) {
+                current_hop_intra_comps++;
+            } else {
+                current_hop_inter_comps++;
+            }
+        }
+        cmps += id_scratch.size();
+        // --- END OF MODIFICATION ---
+
         assert(dist_scratch.capacity() >= id_scratch.size());
         compute_dists(id_scratch, dist_scratch);
         cmps += (uint32_t)id_scratch.size();
@@ -1176,9 +1196,18 @@ std::pair<uint32_t, uint32_t> Index<T, TagT, LabelT>::iterate_to_fixed_point_wit
         // Insert <id, dist> pairs into the pool of candidates
         for (size_t m = 0; m < id_scratch.size(); ++m)
         {
+            size_t size_before_insert = best_L_nodes.size();
             best_L_nodes.insert(Neighbor(id_scratch[m], dist_scratch[m]));
+            size_t size_after_insert = best_L_nodes.size();
+            if (size_before_insert >= Lsize && size_after_insert == size_before_insert) {
+                current_hop_pruned_nodes++;
+            }
         }
 
+        // --- 최종 Trace 기록 (수정) ---
+        trace_path.push_back(TraceInfo{n, source_partition, hops, Lsize,
+                            current_hop_intra_comps, current_hop_inter_comps,
+                            current_hop_pruned_nodes});                             
         hops++;
     }
     return std::make_pair(hops, cmps);

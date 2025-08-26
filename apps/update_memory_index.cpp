@@ -82,7 +82,7 @@ std::string get_save_filename(const std::string &save_path, size_t start_index,
                               size_t end_index, size_t num_delete_point)
 {
     std::string final_path = save_path;
-    // final_path += "-from-" + std::to_string(start_index) + "-to-" + std::to_string(end_index) + "-delete-" + std::to_string(num_delete_point);
+    final_path += "-from-" + std::to_string(start_index) + "-to-" + std::to_string(end_index) + "-delete-" + std::to_string(num_delete_point);
 
     // final_path += std::to_string(last_point_threshold);
     return final_path;
@@ -280,6 +280,11 @@ void build_incremental_index(const std::string &data_path, diskann::IndexWritePa
              start += points_per_checkpoint, current_point_offset += points_per_checkpoint)
         {
 
+            // 내부 상태 출력 (getter 사용)
+            // auto* concrete_index = dynamic_cast<diskann::Index<T, uint32_t, uint32_t>*>(index.get());
+            // if (concrete_index) {
+            //     concrete_index->print_status();
+            // }
 
             const size_t end = std::min(start + points_per_checkpoint, last_point_threshold);
             std::cout << std::endl << "Inserting from " << start << " to " << end << std::endl;
@@ -399,17 +404,17 @@ int main(int argc, char **argv)
                                        program_options_utils::INDEX_PATH_PREFIX_DESCRIPTION);
         required_configs.add_options()("data_path", po::value<std::string>(&data_path)->required(),
                                        program_options_utils::INPUT_DATA_PATH);
-        required_configs.add_options()("points_to_skip", po::value<uint64_t>(&points_to_skip)->required(),
-                                       "Skip these first set of points from file");
-        required_configs.add_options()("beginning_index_size", po::value<uint64_t>(&beginning_index_size)->required(),
-                                       "Batch build will be called on these set of points");
-        required_configs.add_options()("points_per_checkpoint", po::value<uint64_t>(&points_per_checkpoint)->required(),
-                                       "Insertions are done in batches of points_per_checkpoint");
-        required_configs.add_options()("checkpoints_per_snapshot",
-                                       po::value<uint64_t>(&checkpoints_per_snapshot)->required(),
-                                       "Save the index to disk every few checkpoints");
-        required_configs.add_options()("points_to_delete_from_beginning",
-                                       po::value<uint64_t>(&points_to_delete_from_beginning)->required(), "");
+        // required_configs.add_options()("points_to_skip", po::value<uint64_t>(&points_to_skip)->required(),
+        //                                "Skip these first set of points from file");
+        // required_configs.add_options()("beginning_index_size", po::value<uint64_t>(&beginning_index_size)->required(),
+        //                                "Batch build will be called on these set of points");
+        // required_configs.add_options()("points_per_checkpoint", po::value<uint64_t>(&points_per_checkpoint)->required(),
+        //                                "Insertions are done in batches of points_per_checkpoint");
+        // required_configs.add_options()("checkpoints_per_snapshot",
+        //                                po::value<uint64_t>(&checkpoints_per_snapshot)->required(),
+        //                                "Save the index to disk every few checkpoints");
+        // required_configs.add_options()("points_to_delete_from_beginning",
+        //                                po::value<uint64_t>(&points_to_delete_from_beginning)->required(), "");
 
         // Optional parameters
         po::options_description optional_configs("Optional");

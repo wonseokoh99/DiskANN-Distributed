@@ -207,12 +207,12 @@ int main(int argc, char **argv)
         auto config = diskann::IndexConfigBuilder()
                           .with_metric(metric)
                           .with_dimension(data_dim)
-                          .with_max_points(beginning_index_size)
+                          .with_max_points(data_num)
                           .with_data_load_store_strategy(diskann::DataStoreStrategy::MEMORY)
                           .with_graph_load_store_strategy(diskann::GraphStoreStrategy::MEMORY)
                           .with_data_type(data_type)
                           .with_label_type(label_type)
-                          .is_dynamic_index(false)
+                          .is_dynamic_index(true)
                           .with_index_write_params(index_build_params)
                           .is_enable_tags(true)
                           .is_use_opq(use_opq)
@@ -255,8 +255,10 @@ int main(int argc, char **argv)
             index->build(data, beginning_index_size, tags);
 
         }
-
-        
+        auto* concrete_index = dynamic_cast<diskann::Index<float, uint32_t, uint32_t>*>(index.get());
+        if (concrete_index) {
+            concrete_index->print_status();
+        }
 
 
         index->save(index_path_prefix.c_str());
@@ -266,6 +268,7 @@ int main(int argc, char **argv)
         std::cout << "Initial index build time for " << beginning_index_size << " points took "
                     << elapsedSeconds << " seconds (" << beginning_index_size / elapsedSeconds << " points/second)\n";
         std::cout << "Skipped " << points_to_skip << " points from begining and initial index size " << beginning_index_size << " points.\n";
+        
 
         return 0;
     }

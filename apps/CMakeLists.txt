@@ -14,6 +14,10 @@ target_link_libraries(build_memory_index_offset ${PROJECT_NAME} ${DISKANN_TOOLS_
 add_executable(search_memory_index_with_trace search_memory_index_with_trace.cpp)
 target_link_libraries(search_memory_index_with_trace ${PROJECT_NAME} ${DISKANN_TOOLS_TCMALLOC_LINK_OPTIONS} Boost::program_options)
 
+add_executable(update_memory_index update_memory_index.cpp)
+target_link_libraries(update_memory_index ${PROJECT_NAME} ${DISKANN_TOOLS_TCMALLOC_LINK_OPTIONS} Boost::program_options)
+
+
 # My functions
 
 add_executable(build_memory_index build_memory_index.cpp)

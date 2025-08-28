@@ -94,7 +94,10 @@ int search_memory_index(diskann::Metric &metric, const std::string &index_path, 
     auto index = index_factory.create_instance();
     index->load(index_path.c_str(), num_threads, *(std::max_element(Lvec.begin(), Lvec.end())));
     std::cout << "Index loaded" << std::endl;
-
+        auto* concrete_index = dynamic_cast<diskann::Index<T, uint32_t, uint32_t>*>(index.get());
+        if (concrete_index) {
+            concrete_index->print_status();
+        }
     // *** 2. 파티션 파일 로딩 로직 추가 ***
     std::vector<uint32_t> partition_labels;
     bool trace_enabled = !partition_file.empty();

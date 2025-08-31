@@ -82,9 +82,8 @@ std::string get_save_filename(const std::string &save_path, size_t start_index,
                               size_t end_index, size_t num_delete_point)
 {
     std::string final_path = save_path;
-    final_path += "-from-" + std::to_string(start_index) + "-to-" + std::to_string(end_index) + "-delete-" + std::to_string(num_delete_point);
+    final_path += "-from-" + std::to_string(start_index) + "-to-" + std::to_string(end_index);
 
-    // final_path += std::to_string(last_point_threshold);
     return final_path;
 }
 
@@ -249,7 +248,7 @@ void update_memory_index(const std::string &data_path,
     if (concurrent)
     {
         // handle labels
-        const auto save_path_inc = get_save_filename(save_path, 0, 0 + 0, 0);
+        const auto save_path_inc = get_save_filename(save_path, points_to_skip + points_to_delete_from_beginning, points_to_skip + input_index_size + points_to_insert, 0);
         std::string labels_file_to_use = save_path_inc + "_label_formatted.txt";
         std::string mem_labels_int_map_file = save_path_inc + "_labels_map.txt";
         if (has_labels)
@@ -304,7 +303,7 @@ void update_memory_index(const std::string &data_path,
     }
     else
     {
-        const auto save_path_inc = get_save_filename(save_path, 0, 0 + 0, 0);
+        const auto save_path_inc = get_save_filename(save_path, points_to_skip + points_to_delete_from_beginning, points_to_skip + input_index_size + points_to_insert, 0);
         std::string labels_file_to_use = save_path_inc + "_label_formatted.txt";
         std::string mem_labels_int_map_file = save_path_inc + "_labels_map.txt";
         if (has_labels)
@@ -369,7 +368,7 @@ void update_memory_index(const std::string &data_path,
 
 int main(int argc, char **argv)
 {
-    std::string data_type, dist_fn, data_path, index_path_prefix;
+    std::string data_type, dist_fn, data_path, index_path_prefix, index_save_path;
     uint32_t num_threads, R, L, num_start_pts;
     float alpha, start_point_norm;
     size_t points_to_skip, input_index_size, points_to_insert,
@@ -394,6 +393,8 @@ int main(int argc, char **argv)
                                        program_options_utils::DISTANCE_FUNCTION_DESCRIPTION);
         required_configs.add_options()("index_path_prefix", po::value<std::string>(&index_path_prefix)->required(),
                                        program_options_utils::INDEX_PATH_PREFIX_DESCRIPTION);
+        required_configs.add_options()("index_save_path", po::value<std::string>(&index_save_path)->required(),
+                                       "save path prefix needed");
         required_configs.add_options()("data_path", po::value<std::string>(&data_path)->required(),
                                        program_options_utils::INPUT_DATA_PATH);
 
@@ -492,17 +493,17 @@ int main(int argc, char **argv)
         if (data_type == std::string("int8"))
             update_memory_index<int8_t>(
                 data_path, index_path_prefix, params, points_to_skip, points_to_insert, input_index_size, start_point_norm,
-                num_start_pts, index_path_prefix,
+                num_start_pts, index_save_path,
                 points_to_delete_from_beginning, start_deletes_after, concurrent, label_file, universal_label);
         else if (data_type == std::string("uint8"))
             update_memory_index<uint8_t>(
                 data_path, index_path_prefix, params, points_to_skip, points_to_insert, input_index_size, start_point_norm,
-                num_start_pts, index_path_prefix,
+                num_start_pts, index_save_path,
                 points_to_delete_from_beginning, start_deletes_after, concurrent, label_file, universal_label);
         else if (data_type == std::string("float"))
             update_memory_index<float>(data_path, index_path_prefix, params, points_to_skip, points_to_insert, 
                                            input_index_size, start_point_norm, num_start_pts,
-                                           index_path_prefix, points_to_delete_from_beginning,
+                                           index_save_path, points_to_delete_from_beginning,
                                            start_deletes_after, concurrent, label_file, universal_label);
         else
             std::cout << "Unsupported type. Use float/int8/uint8" << std::endl;

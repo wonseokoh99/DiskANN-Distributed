@@ -80,6 +80,14 @@ inline void load_aligned_bin_part(const std::string &bin_file, T *data, size_t o
     std::cout << "Read " << points_to_read << " points using non-cached reads in " << elapsedSeconds << std::endl;
 }
 
+std::string get_save_filename(const std::string &save_path, size_t start_index,
+                              size_t end_index)
+{
+    std::string final_path = save_path;
+    final_path += "-from-" + std::to_string(start_index) + "-to-" + std::to_string(end_index);
+
+    return final_path;
+}
 
 int main(int argc, char **argv)
 {
@@ -207,7 +215,7 @@ int main(int argc, char **argv)
         auto config = diskann::IndexConfigBuilder()
                           .with_metric(metric)
                           .with_dimension(data_dim)
-                          .with_max_points(data_num)
+                          .with_max_points(beginning_index_size)
                           .with_data_load_store_strategy(diskann::DataStoreStrategy::MEMORY)
                           .with_graph_load_store_strategy(diskann::GraphStoreStrategy::MEMORY)
                           .with_data_type(data_type)
@@ -260,8 +268,9 @@ int main(int argc, char **argv)
             concrete_index->print_status();
         }
 
+        const auto save_path_inc = get_save_filename(index_path_prefix, points_to_skip, points_to_skip + beginning_index_size);
 
-        index->save(index_path_prefix.c_str());
+        index->save(save_path_inc.c_str());
         index.reset();
 
         const double elapsedSeconds = timer.elapsed() / 1000000.0;

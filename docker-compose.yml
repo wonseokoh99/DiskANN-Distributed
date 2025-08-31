@@ -1,0 +1,30 @@
+# docker-compose.yml
+
+version: '3.8'
+
+services:
+  # 이 서비스의 이름을 자유롭게 지정할 수 있습니다. (예: dev, app, my-service)
+  diskann-dev-service:
+    # 실행할 Docker 이미지 이름 (이전에 빌드하신 이미지 이름)
+    image: diskann-wonseok
+
+    # --gpus all 옵션과 동일한 설정
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+    # -v $(pwd):/workspace 옵션과 동일한 설정
+    # (현재 디렉터리를 컨테이너의 /workspace에 연결)
+    volumes:
+      - .:/workspace
+
+    # -w /workspace 옵션과 동일한 설정
+    working_dir: /workspace
+
+    # -it 옵션과 동일한 설정 (대화형 터미널 유지)
+    stdin_open: true # -i
+    tty: true        # -t

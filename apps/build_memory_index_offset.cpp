@@ -270,7 +270,7 @@ int main(int argc, char **argv)
 
         const auto save_path_inc = get_save_filename(index_path_prefix, points_to_skip, points_to_skip + beginning_index_size);
 
-        index->save(save_path_inc.c_str());
+        index->save(index_path_prefix.c_str());
         index.reset();
 
         const double elapsedSeconds = timer.elapsed() / 1000000.0;

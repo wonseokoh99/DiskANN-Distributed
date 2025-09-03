@@ -190,56 +190,87 @@ int search_memory_index(diskann::Metric &metric, const std::string &index_path, 
     for (uint32_t test_id = 0; test_id < Lvec.size(); test_id++)
     {
         uint32_t L = Lvec[test_id];
-        if (L < recall_at) {
+        if (L < recall_at)
+        {
             diskann::cout << "Ignoring search with L:" << L << " since it's smaller than K:" << recall_at << std::endl;
             continue;
         }
 
-        // all_traces 벡터를 매번 초기화
-        if (trace_enabled) {
-            all_traces.assign(query_num, std::vector<TraceInfo>());
-        }
+        query_result_ids[test_id].resize(recall_at * query_num);
+        query_result_dists[test_id].resize(recall_at * query_num);
+        std::vector<T *> res = std::vector<T *>();
 
         auto s = std::chrono::high_resolution_clock::now();
         omp_set_num_threads(num_threads);
-    #pragma omp parallel for schedule(dynamic, 1)
+#pragma omp parallel for schedule(dynamic, 1)
         for (int64_t i = 0; i < (int64_t)query_num; i++)
         {
             auto qs = std::chrono::high_resolution_clock::now();
-            
-            auto concrete_index = static_cast<diskann::Index<T, TagT, LabelT>*>(index.get());
-            
-            // 임시 결과 저장용 벡터 (IdType 대신 uint32_t 사용)
-            std::vector<uint32_t> single_query_result_ids(recall_at);
+            if (filtered_search && !tags)
+            {
+                std::string raw_filter = query_filters.size() == 1 ? query_filters[0] : query_filters[i];
 
-            if (trace_enabled) {
-                cmp_stats[i] = concrete_index->search_with_trace(
-                                query + i * query_aligned_dim, recall_at, L,
-                                single_query_result_ids.data(),
-                                partition_labels, all_traces[i], nullptr
-                            ).second;
-            } else {
-                // 태그 없는 일반 search는 내부 ID를 반환하므로 그대로 사용 가능
-                cmp_stats[i] = concrete_index->search(
-                                query + i * query_aligned_dim, recall_at, L,
-                                single_query_result_ids.data()
-                            ).second;
+                auto retval = index->search_with_filters(query + i * query_aligned_dim, raw_filter, recall_at, L,
+                                                         query_result_ids[test_id].data() + i * recall_at,
+                                                         query_result_dists[test_id].data() + i * recall_at);
+                cmp_stats[i] = retval.second;
             }
+            else if (metric == diskann::FAST_L2)
+            {
+                index->search_with_optimized_layout(query + i * query_aligned_dim, recall_at, L,
+                                                    query_result_ids[test_id].data() + i * recall_at);
+            }
+            else if (tags)
+            {
+                if (!filtered_search)
+                {
+                    index->search_with_tags(query + i * query_aligned_dim, recall_at, L,
+                                            query_result_tags.data() + i * recall_at, nullptr, res);
+                }
+                else
+                {
+                    std::string raw_filter = query_filters.size() == 1 ? query_filters[0] : query_filters[i];
 
-            // --- START OF MODIFICATION ---
-            // Recall 계산을 위해 single_query_result_ids를 메인 결과 배열에 복사
-            // 이 ID들은 태그가 아닌 내부 위치 ID이므로 GT와 일치합니다.
-            for(uint32_t j = 0; j < recall_at; ++j) {
-                query_result_ids[test_id][i * recall_at + j] = single_query_result_ids[j];
+                    index->search_with_tags(query + i * query_aligned_dim, recall_at, L,
+                                            query_result_tags.data() + i * recall_at, nullptr, res, true, raw_filter);
+                }
+
+                for (int64_t r = 0; r < (int64_t)recall_at; r++)
+                {
+                    query_result_ids[test_id][recall_at * i + r] = query_result_tags[recall_at * i + r];
+                }
             }
-            // --- END OF MODIFICATION ---
-            
-            auto qe = std::chrono::high_resolution_clock::now();
-            std::chrono::duration<double> diff = qe - qs;
-            latency_stats[i] = (float)(diff.count() * 1000000);
+            else
+            {
+                // *** 4. 표준 탐색 부분을 분기 처리 ***
+                if (trace_enabled) {
+                    // get_num_points()를 위해 사용했던 concrete_index 포인터를 여기서도 사용합니다.
+                    // unique_ptr에서 원시 포인터를 가져와 static_cast를 수행합니다.
+                    auto concrete_index = static_cast<diskann::Index<T, TagT, LabelT>*>(index.get());
+
+                    // concrete_index를 통해 새로운 함수를 호출합니다.
+                    cmp_stats[i] = concrete_index->search_with_trace(
+                                    query + i * query_aligned_dim, 
+                                    recall_at, 
+                                    L,
+                                    query_result_ids[test_id].data() + i * recall_at,
+                                    partition_labels,  // 5번째 인자
+                                    all_traces[i],     // 6번째 인자
+                                    nullptr          // 7번째 인자 (맨 마지막)
+                                ).second;
+                } else {
+                    // 추적 기능이 꺼져 있을 때는 기존의 search 함수를 그대로 사용합니다.
+                    cmp_stats[i] = index->search(
+                                    query + i * query_aligned_dim, recall_at, L,
+                                    query_result_ids[test_id].data() + i * recall_at
+                                ).second;
+                }
+                auto qe = std::chrono::high_resolution_clock::now();
+                std::chrono::duration<double> diff = qe - qs;
+                latency_stats[i] = (float)(diff.count() * 1000000);
+            }
         }
         std::chrono::duration<double> diff = std::chrono::high_resolution_clock::now() - s;
-
 
         double displayed_qps = query_num / diff.count();
 

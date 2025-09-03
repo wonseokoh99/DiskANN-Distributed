@@ -229,8 +229,10 @@ void update_memory_index(const std::string &data_path,
     current_point_offset += input_index_size;
 
     T *data = nullptr;
+    size_t buffer_size = std::max(input_index_size, points_to_insert);
+
     diskann::alloc_aligned(
-        (void **)&data, input_index_size * aligned_dim * sizeof(T), 8 * sizeof(T));
+        (void **)&data, buffer_size * aligned_dim * sizeof(T), 8 * sizeof(T));
 
     std::vector<TagT> tags(input_index_size);
     std::iota(tags.begin(), tags.end(), 1 + static_cast<TagT>(current_point_offset));
@@ -264,7 +266,6 @@ void update_memory_index(const std::string &data_path,
 
         diskann::Timer timer;
 
-
          
         // Insert
         if (points_to_insert > 0) 
@@ -283,8 +284,12 @@ void update_memory_index(const std::string &data_path,
 
         
         // Delete
-        if (points_to_delete_from_beginning > 0)
+        if (!delete_launched)
         {
+            size_t start = points_to_skip;
+            const size_t end = start + points_to_delete_from_beginning;
+            std::cout << std::endl << "Deleting from " << start  << " to " << end << std::endl;
+
             delete_launched = true;
             diskann::IndexWriteParameters delete_params =
                 diskann::IndexWriteParametersBuilder(params).with_num_threads(sub_threads).build();
@@ -295,8 +300,11 @@ void update_memory_index(const std::string &data_path,
             });
         }
 
+        if (delete_launched) 
+        {
+            delete_task.get();
+        }
         
-        delete_task.get();
 
         std::cout << "Time Elapsed " << timer.elapsed() / 1000 << "ms\n";
         index->save(save_path_inc.c_str(), true);
@@ -340,10 +348,8 @@ void update_memory_index(const std::string &data_path,
         }
 
         // Delete
-        if (points_to_delete_from_beginning > 0)
-        {
-            delete_from_beginning<T, TagT>(*index, params, points_to_skip, points_to_delete_from_beginning);
-        }
+        delete_from_beginning<T, TagT>(*index, params, points_to_skip, points_to_delete_from_beginning);
+
 
         auto* concrete_index2 = dynamic_cast<diskann::Index<T, uint32_t, uint32_t>*>(index.get());
         if (concrete_index2) {

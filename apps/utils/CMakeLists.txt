@@ -4,6 +4,10 @@
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
 
+################
+add_executable(bvecs_to_bin bvecs_to_bin.cpp)
+
+#########
 
 add_executable(fvecs_to_bin fvecs_to_bin.cpp)
 

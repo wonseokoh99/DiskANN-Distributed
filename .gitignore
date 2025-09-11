@@ -3,6 +3,10 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+# Simulation data and Dataset
+02_Datasets/
+03_Simulation_data
+
 # User-specific files
 *.rsuser
 *.suo

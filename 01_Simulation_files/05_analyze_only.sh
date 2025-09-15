@@ -4,24 +4,68 @@ if [ -z "$BASH_VERSION" ]; then
 fi
 
 # ================================================================
-# 스크립트 사용법 확인 및 경로 설정
+# 스크립트 사용법 확인
 # ================================================================
-if [ -z "$1" ]; then
+if [ -z "$1" ] || [[ "$1" == -* ]]; then
     echo "오류: 분석할 시뮬레이션 디렉터리 경로를 입력해주세요."
-    echo "사용법: $0 <SIM_DIR_PATH>"
+    echo "사용법: $0 <SIM_DIR_PATH> [--partitions] [--edges] [--trace] [--degree]"
     exit 1
+fi
+
+SIM_DIR="$1"
+shift # 첫 번째 인자 (경로)를 제거하고 나머지 플래그만 남김
+
+# ================================================================
+# [수정] 실행할 분석을 선택하기 위한 플래그 파싱
+# ================================================================
+RUN_PARTITIONS=false
+RUN_EDGES=false
+RUN_TRACE=false
+RUN_DEGREE=false
+NO_FLAGS=true # 특정 플래그가 주어졌는지 확인
+
+for arg in "$@"; do
+    case $arg in
+        --partitions)
+            RUN_PARTITIONS=true
+            NO_FLAGS=false
+            shift
+            ;;
+        --edges)
+            RUN_EDGES=true
+            NO_FLAGS=false
+            shift
+            ;;
+        --trace)
+            RUN_TRACE=true
+            NO_FLAGS=false
+            shift
+            ;;
+        --degree)
+            RUN_DEGREE=true
+            NO_FLAGS=false
+            shift
+            ;;
+    esac
+done
+
+# 아무 플래그도 없으면 모든 분석을 실행
+if [ "$NO_FLAGS" = true ]; then
+    echo "실행 플래그가 없습니다. 모든 분석을 실행합니다."
+    RUN_PARTITIONS=true
+    RUN_EDGES=true
+    RUN_TRACE=true
+    RUN_DEGREE=true
 fi
 
 # 최상위 디렉터리로 이동
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR" || exit 1
 
-# 입력받은 시뮬레이션 디렉터리
-SIM_DIR="$1"
 echo "분석을 시작할 디렉터리: ${SIM_DIR}"
 
 # ================================================================
-# 기존 시뮬레이션 파라미터 (파일 경로 재구성을 위해 필요)
+# 기존 시뮬레이션 파라미터
 # ================================================================
 POINTS_TO_DELETE=25000
 POINTS_TO_INSERT=40000
@@ -29,23 +73,20 @@ START_POINT=0
 INITIAL_INDEX_SIZE=400000
 NUM_PARTITION=8
 DIMENSION=128
-MAX_ITERATIONS=10
-
+MAX_ITERATIONS=8
 DATA_SIZE='4'
-
 
 # ================================================================
 # Path and Directory Setup
 # ================================================================
 INDEX_DIR="${SIM_DIR}/01_Index_files"
 RESULT_DIR="${SIM_DIR}/05_Simulation_results"
-ANALYSIS_DIR="${SIM_DIR}/06_Simulation_analysis/" # 분석 결과는 동일한 디렉터리에 덮어쓰거나 새로 생성
-LOG_DIR="${SIM_DIR}/10_Log" # 로그는 동일한 디렉터리에 저장
+ANALYSIS_DIR="${SIM_DIR}/06_Simulation_analysis/"
+LOG_DIR="${SIM_DIR}/10_Log"
 
 INDEX_PREFIX="${INDEX_DIR}/index"
 TOOLS_DIR="../00_Tools"
 
-# 분석 결과 저장 디렉터리가 없다면 생성
 mkdir -p ${ANALYSIS_DIR} ${LOG_DIR}
 
 # ================================================================
@@ -83,7 +124,7 @@ RESULT_DIR_INITIAL="${RESULT_DIR}/${DIR_MODIFIER}"
 ANALYSIS_DIR_INIT="${ANALYSIS_DIR}/${DIR_MODIFIER}"
 mkdir -p "${ANALYSIS_DIR_INIT}"
 
-if [ -f "${PARTITION_PATH}" ]; then
+if [ "$RUN_PARTITIONS" = true ] && [ -f "${PARTITION_PATH}" ]; then
     run_with_log "analyze_initial_partitions" \
         conda run -n rapids python -u ${TOOLS_DIR}/visualize_partitions.py \
             --partition_file ${PARTITION_PATH} \
@@ -91,7 +132,7 @@ if [ -f "${PARTITION_PATH}" ]; then
             --size_t_bytes ${DATA_SIZE}
 fi
 
-if [ -f "${INDEX_PATH}" ] && [ -f "${PARTITION_PATH}" ]; then
+if [ "$RUN_EDGES" = true ] && [ -f "${INDEX_PATH}" ] && [ -f "${PARTITION_PATH}" ]; then
     run_with_log "analyze_initial_edges" \
         conda run -n rapids python -u ${TOOLS_DIR}/analyze_edges.py \
             --graph_file ${INDEX_PATH} \
@@ -101,14 +142,14 @@ if [ -f "${INDEX_PATH}" ] && [ -f "${PARTITION_PATH}" ]; then
             --size_t_bytes ${DATA_SIZE}
 fi
 
-if [ -f "${RESULT_DIR_INITIAL}/res_trace.csv" ]; then
+if [ "$RUN_TRACE" = true ] && [ -f "${RESULT_DIR_INITIAL}/res_trace.csv" ]; then
     run_with_log "analyze_initial_trace" \
         conda run -n rapids python -u ${TOOLS_DIR}/analyze_trace.py \
             --trace_file ${RESULT_DIR_INITIAL}/res_trace.csv \
             --output_prefix ${ANALYSIS_DIR_INIT}/trace_analysis
 fi
 
-if [ -f "${INDEX_PATH}" ]; then
+if [ "$RUN_DEGREE" = true ] && [ -f "${INDEX_PATH}" ]; then
     run_with_log "analyze_initial_degree" \
         conda run -n rapids python -u ${TOOLS_DIR}/analyze_degree.py \
             --graph_file ${INDEX_PATH} \
@@ -139,7 +180,7 @@ while [ $iteration -lt ${MAX_ITERATIONS} ]; do
 
     echo "--- Analyzing Iteration ${iteration} Data (Path: ${DIR_MODIFIER_NEW}) ---"
 
-    if [ -f "${PARTITION_PATH_NEW}" ]; then
+    if [ "$RUN_PARTITIONS" = true ] && [ -f "${PARTITION_PATH_NEW}" ]; then
         run_with_log "analyze_iter_${iteration}_partitions" \
             conda run -n rapids python -u ${TOOLS_DIR}/visualize_partitions.py \
                 --partition_file ${PARTITION_PATH_NEW} \
@@ -147,7 +188,7 @@ while [ $iteration -lt ${MAX_ITERATIONS} ]; do
                 --size_t_bytes ${DATA_SIZE}
     fi
 
-    if [ -f "${INDEX_PATH_NEW}" ] && [ -f "${PARTITION_PATH_NEW}" ]; then
+    if [ "$RUN_EDGES" = true ] && [ -f "${INDEX_PATH_NEW}" ] && [ -f "${PARTITION_PATH_NEW}" ]; then
         run_with_log "analyze_iter_${iteration}_edges" \
             conda run -n rapids python -u ${TOOLS_DIR}/analyze_edges.py \
                 --graph_file ${INDEX_PATH_NEW} \
@@ -157,14 +198,14 @@ while [ $iteration -lt ${MAX_ITERATIONS} ]; do
                 --size_t_bytes ${DATA_SIZE}
     fi
 
-    if [ -f "${RESULT_DIR_ITER}/res_trace.csv" ]; then
+    if [ "$RUN_TRACE" = true ] && [ -f "${RESULT_DIR_ITER}/res_trace.csv" ]; then
         run_with_log "analyze_iter_${iteration}_trace" \
             conda run -n rapids python -u ${TOOLS_DIR}/analyze_trace.py \
                 --trace_file ${RESULT_DIR_ITER}/res_trace.csv \
                 --output_prefix ${ANALYSIS_DIR_ITER}/trace_analysis
     fi
 
-    if [ -f "${INDEX_PATH_NEW}" ]; then
+    if [ "$RUN_DEGREE" = true ] && [ -f "${INDEX_PATH_NEW}" ]; then
         run_with_log "analyze_iter_${iteration}_degree" \
             conda run -n rapids python -u ${TOOLS_DIR}/analyze_degree.py \
                 --graph_file ${INDEX_PATH_NEW} \
@@ -177,21 +218,15 @@ done
 #  Phase 3 : Re-partition Data Analysis
 # ================================================================
 echo "---------- PHASE 3 : Re-partition Data Analysis ----------"
-# 변수를 Phase 1 이후 상태로 리셋
 iteration=0
 CURRENT_START_POINT=${START_POINT}
 CURRENT_INDEX_SIZE=${INITIAL_INDEX_SIZE}
 
 while [ $iteration -lt ${MAX_ITERATIONS} ]; do
     iteration=$((iteration + 1))
-
-    # --- 분석할 파일 경로 구성 ---
     PATH_MODIFIER_CURRENT="-from-${CURRENT_START_POINT}-to-$((CURRENT_START_POINT + CURRENT_INDEX_SIZE))"
     INDEX_PATH_CURRENT="${INDEX_PREFIX}${PATH_MODIFIER_CURRENT}"
-    
-    # Re-partitioned 파일 경로
     PARTITION_PATH_REPARTITION="${INDEX_PATH_CURRENT}-repartition.partition${NUM_PARTITION}"
-    
     DIR_MODIFIER_CURRENT="${PATH_MODIFIER_CURRENT#-}"
     ANALYSIS_DIR_REPARTITION="${ANALYSIS_DIR}/${DIR_MODIFIER_CURRENT}-repartitioned"
     RESULT_DIR_REPARTITION="${RESULT_DIR}/${DIR_MODIFIER_CURRENT}-repartitioned"
@@ -199,24 +234,27 @@ while [ $iteration -lt ${MAX_ITERATIONS} ]; do
 
     echo "--- Analyzing Repartitioned State of Iteration ${iteration} (Path: ${DIR_MODIFIER_CURRENT}-repartitioned) ---"
 
-    # --- 분석 실행 (필요한 파일이 모두 존재하는지 확인) ---
     TRACE_FILE_REPARTITION="${RESULT_DIR_REPARTITION}/res_trace.csv"
-    if [ ! -f "${PARTITION_PATH_REPARTITION}" ] || [ ! -f "${TRACE_FILE_REPARTITION}" ]; then
-        echo "경고: Repartitioned 데이터 파일(${PARTITION_PATH_REPARTITION} 또는 ${TRACE_FILE_REPARTITION})을 찾을 수 없어 이번 이터레이션을 건너뜁니다."
+    if [ ! -f "${PARTITION_PATH_REPARTITION}" ]; then
+        echo "경고: Repartitioned 데이터 파일(${PARTITION_PATH_REPARTITION})을 찾을 수 없어 이번 이터레이션을 건너뜁니다."
     else
-        run_with_log "analyze_repartitioned_${iteration}_all" \
-            conda run -n rapids python -u ${TOOLS_DIR}/visualize_partitions.py --partition_file ${PARTITION_PATH_REPARTITION} --output_image ${ANALYSIS_DIR_REPARTITION}/points_analysis.png --size_t_bytes ${DATA_SIZE} && \
-            conda run -n rapids python -u ${TOOLS_DIR}/analyze_edges.py --graph_file ${INDEX_PATH_CURRENT} --partition_file ${PARTITION_PATH_REPARTITION} --output_prefix ${ANALYSIS_DIR_REPARTITION}/edge_analysis --num_partitions ${NUM_PARTITION} --size_t_bytes ${DATA_SIZE} && \
-            conda run -n rapids python -u ${TOOLS_DIR}/analyze_trace.py --trace_file "${TRACE_FILE_REPARTITION}" --output_prefix ${ANALYSIS_DIR_REPARTITION}/trace_analysis && \
-            conda run -n rapids python -u ${TOOLS_DIR}/analyze_degree.py --graph_file ${INDEX_PATH_CURRENT} --output_prefix ${ANALYSIS_DIR_REPARTITION}/degree_analysis --size_t_bytes ${DATA_SIZE}
+        if [ "$RUN_PARTITIONS" = true ]; then
+            run_with_log "analyze_repartitioned_${iteration}_partitions" conda run -n rapids python -u ${TOOLS_DIR}/visualize_partitions.py --partition_file ${PARTITION_PATH_REPARTITION} --output_image ${ANALYSIS_DIR_REPARTITION}/points_analysis.png --size_t_bytes ${DATA_SIZE}
+        fi
+        if [ "$RUN_EDGES" = true ]; then
+            run_with_log "analyze_repartitioned_${iteration}_edges" conda run -n rapids python -u ${TOOLS_DIR}/analyze_edges.py --graph_file ${INDEX_PATH_CURRENT} --partition_file ${PARTITION_PATH_REPARTITION} --output_prefix ${ANALYSIS_DIR_REPARTITION}/edge_analysis --num_partitions ${NUM_PARTITION} --size_t_bytes ${DATA_SIZE}
+        fi
+        if [ "$RUN_TRACE" = true ] && [ -f "${TRACE_FILE_REPARTITION}" ]; then
+            run_with_log "analyze_repartitioned_${iteration}_trace" conda run -n rapids python -u ${TOOLS_DIR}/analyze_trace.py --trace_file "${TRACE_FILE_REPARTITION}" --output_prefix ${ANALYSIS_DIR_REPARTITION}/trace_analysis
+        fi
+        if [ "$RUN_DEGREE" = true ]; then
+            run_with_log "analyze_repartitioned_${iteration}_degree" conda run -n rapids python -u ${TOOLS_DIR}/analyze_degree.py --graph_file ${INDEX_PATH_CURRENT} --output_prefix ${ANALYSIS_DIR_REPARTITION}/degree_analysis --size_t_bytes ${DATA_SIZE}
+        fi
     fi
-
-    # --- 다음 이터레이션을 위해 변수 업데이트 ---
+    
     CURRENT_START_POINT=$((CURRENT_START_POINT + POINTS_TO_DELETE))
     CURRENT_INDEX_SIZE=$((CURRENT_INDEX_SIZE + POINTS_TO_INSERT - POINTS_TO_DELETE))
 done
-
-
 
 # ================================================================
 # Phase 4 : Re-build Data Analysis
@@ -228,11 +266,9 @@ CURRENT_INDEX_SIZE=${INITIAL_INDEX_SIZE}
 
 while [ $iteration -lt ${MAX_ITERATIONS} ]; do
     iteration=$((iteration + 1))
-
     PATH_MODIFIER_CURRENT="-from-${CURRENT_START_POINT}-to-$((CURRENT_START_POINT + CURRENT_INDEX_SIZE))"
     INDEX_PATH_REBUILT="${INDEX_PREFIX}${PATH_MODIFIER_CURRENT}-rebuilt"
     PARTITION_PATH_REBUILT="${INDEX_PATH_REBUILT}.partition${NUM_PARTITION}"
-    
     DIR_MODIFIER_CURRENT="${PATH_MODIFIER_CURRENT#-}"
     ANALYSIS_DIR_REBUILT="${ANALYSIS_DIR}/${DIR_MODIFIER_CURRENT}-rebuilt"
     RESULT_DIR_REBUILT="${RESULT_DIR}/${DIR_MODIFIER_CURRENT}-rebuilt"
@@ -243,11 +279,18 @@ while [ $iteration -lt ${MAX_ITERATIONS} ]; do
     if [ ! -f "${INDEX_PATH_REBUILT}" ]; then
         echo "경고: Rebuilt 데이터 파일(${INDEX_PATH_REBUILT})를 찾을 수 없어 이번 이터레이션을 건너뜁니다."
     else
-        run_with_log "analyze_rebuilt_${iteration}_all" \
-            conda run -n rapids python -u ${TOOLS_DIR}/visualize_partitions.py --partition_file ${PARTITION_PATH_REBUILT} --output_image ${ANALYSIS_DIR_REBUILT}/points_analysis.png --size_t_bytes ${DATA_SIZE} && \
-            conda run -n rapids python -u ${TOOLS_DIR}/analyze_edges.py --graph_file ${INDEX_PATH_REBUILT} --partition_file ${PARTITION_PATH_REBUILT} --output_prefix ${ANALYSIS_DIR_REBUILT}/edge_analysis --num_partitions ${NUM_PARTITION} --size_t_bytes ${DATA_SIZE} && \
-            conda run -n rapids python -u ${TOOLS_DIR}/analyze_trace.py --trace_file "${RESULT_DIR_REBUILT}/res_trace.csv" --output_prefix ${ANALYSIS_DIR_REBUILT}/trace_analysis && \
-            conda run -n rapids python -u ${TOOLS_DIR}/analyze_degree.py --graph_file ${INDEX_PATH_REBUILT} --output_prefix ${ANALYSIS_DIR_REBUILT}/degree_analysis --size_t_bytes ${DATA_SIZE}
+        if [ "$RUN_PARTITIONS" = true ]; then
+            run_with_log "analyze_rebuilt_${iteration}_partitions" conda run -n rapids python -u ${TOOLS_DIR}/visualize_partitions.py --partition_file ${PARTITION_PATH_REBUILT} --output_image ${ANALYSIS_DIR_REBUILT}/points_analysis.png --size_t_bytes ${DATA_SIZE}
+        fi
+        if [ "$RUN_EDGES" = true ]; then
+            run_with_log "analyze_rebuilt_${iteration}_edges" conda run -n rapids python -u ${TOOLS_DIR}/analyze_edges.py --graph_file ${INDEX_PATH_REBUILT} --partition_file ${PARTITION_PATH_REBUILT} --output_prefix ${ANALYSIS_DIR_REBUILT}/edge_analysis --num_partitions ${NUM_PARTITION} --size_t_bytes ${DATA_SIZE}
+        fi
+        if [ "$RUN_TRACE" = true ] && [ -f "${RESULT_DIR_REBUILT}/res_trace.csv" ]; then
+            run_with_log "analyze_rebuilt_${iteration}_trace" conda run -n rapids python -u ${TOOLS_DIR}/analyze_trace.py --trace_file "${RESULT_DIR_REBUILT}/res_trace.csv" --output_prefix ${ANALYSIS_DIR_REBUILT}/trace_analysis
+        fi
+        if [ "$RUN_DEGREE" = true ]; then
+            run_with_log "analyze_rebuilt_${iteration}_degree" conda run -n rapids python -u ${TOOLS_DIR}/analyze_degree.py --graph_file ${INDEX_PATH_REBUILT} --output_prefix ${ANALYSIS_DIR_REBUILT}/degree_analysis --size_t_bytes ${DATA_SIZE}
+        fi
     fi
 
     CURRENT_START_POINT=$((CURRENT_START_POINT + POINTS_TO_DELETE))
